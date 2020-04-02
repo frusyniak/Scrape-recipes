@@ -1,19 +1,91 @@
-
+1. Investite bon apetite website. Find a source of a bunch of pages on the site, or make an algorithm to crawl through the site.
 
 https://www.bonappetit.com/sitemap?year=2020&month=3&week=1
 
-rl = 'https://www.bonappetit.com/recipe/roasty-toasty-pecan-caramel-shortbread-cookies'
-
-response = requests.get(url)
-
-soup = BeautifulSoup(response.text, features='html.parser')
 
 
-#todo iterate through and find every url. urls will be a list of every url being basses to the class BA scrape
+
+
+
+
+
+
+
+
+2020 samples:
+
+
+https://www.bonappetit.com/recipe/vegetarian-ramen
+    <div class="ingredients_text">INGREDIENTS</div>
+
+https://www.bonappetit.com/recipe/roasty-toasty-pecan-caramel-shortbread-cookies
+
+    container for everything:
+    /html/body/div[4]/div/div[2]/div[3]/div/div/div[1]/div[1]/div[3]/div/ol
+        ol tag
+        class='steps'
+        data-reactid=430
+
+    ingredient element within each container:
+    /html/body/div[4]/div/div[2]/div[3]/div/div/div[1]/div[1]/div[3]/div/ol/li[1]/div/p/strong
+
+https://www.bonappetit.com/recipes/slideshow/anchovy-sardine-recipes --> https://www.bonappetit.com/recipe/grilled-sardines-with-aioli
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# todo iterate through, and find every url. urls will be a list of every url that we will pass to BAScrape
 urls = [
-'https://www.bonappetit.com/recipe/roasty-toasty-pecan-caramel-shortbread-cookies', 
-'https://www.bonappetit.com/recipe/classic-sole-meuni-re'
+    'https://www.bonappetit.com/recipe/roasty-toasty-pecan-caramel-shortbread-cookies',
+    'https://www.bonappetit.com/recipes/article/mastering-the-art-of-sole-meuni-re',
 ]
 
+# shit I don't want
+'https://www.bonappetit.com/recipes/article/mastering-the-art-of-sole-meuni-re'
+# shit I do want
+'https://www.bonappetit.com/recipe/classic-sole-meuni-re'
 
-test of stuff
+
+
+
+
+
+
+url = 'https://www.bonappetit.com/recipe/roasty-toasty-pecan-caramel-shortbread-cookies'
+
+
+
