@@ -7,7 +7,7 @@ from parsers import Parsers
 
 class BonApetitScrape:
 	"""
-	Each instance represents a single recipe scraped from the bon apetit website. 
+	Each instance represents a single recipe scraped from the bon apetit website.
 	"""
 	def __init__(self, url):
 
@@ -28,10 +28,10 @@ class BonApetitScrape:
 				recipe url
 		"""
 		soup = self.get_soup()
-		parsed_soup= self.parse(soup)
-	
+		parsed_page= self.parse(soup)
 
-		return soup_data
+
+		return parsed_page
 
 	def parse(self, soup):
 		"""
@@ -57,14 +57,4 @@ class BonApetitScrape:
 
 if __name__ == "__main__":
 	ba_scr = BonApetitScrape('https://www.bonappetit.com/recipe/roasty-toasty-pecan-caramel-shortbread-cookies')
-
-
-
-
-
-
-
-
-
-
 
