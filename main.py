@@ -31,7 +31,7 @@ class BonApetitScrape:
 		parsed_soup= self.parse(soup)
 	
 
-		return soup_data
+		return parsed_soup
 
 	def parse(self, soup):
 		"""
