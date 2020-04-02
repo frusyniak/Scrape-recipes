@@ -1,0 +1,18 @@
+
+
+https://www.bonappetit.com/sitemap?year=2020&month=3&week=1
+
+rl = 'https://www.bonappetit.com/recipe/roasty-toasty-pecan-caramel-shortbread-cookies'
+
+response = requests.get(url)
+
+soup = BeautifulSoup(response.text, features='html.parser')
+
+
+#todo iterate through and find every url. urls will be a list of every url being basses to the class BA scrape
+urls = [
+'https://www.bonappetit.com/recipe/roasty-toasty-pecan-caramel-shortbread-cookies', 
+'https://www.bonappetit.com/recipe/classic-sole-meuni-re'
+]
+
+
