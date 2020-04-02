@@ -49,6 +49,7 @@ class BonApetitScrape:
 		make the request, return the beautifulsoup object
 		"""
 		response = requests.get(self.url)
+		self.response = response
 		soup = BeautifulSoup(response.text, features='html.parser')
 
 		return soup
@@ -56,5 +57,21 @@ class BonApetitScrape:
 
 
 if __name__ == "__main__":
-	ba_scr = BonApetitScrape('https://www.bonappetit.com/recipe/roasty-toasty-pecan-caramel-shortbread-cookies')
+	import os
+	base_dir = os.path.dirname(os.path.abspath(__file__))
 
+	urls= ['https://www.bonappetit.com/recipe/roasty-toasty-pecan-caramel-shortbread-cookies', 
+	'https://www.bonappetit.com/recipe/grilled-sardines-with-aioli', 
+	'https://www.bonappetit.com/recipe/vegetarian-ramen'
+	]
+	for url in urls:
+		ba_scr = BonApetitScrape(url)
+		file_path = os.path.join(
+			base_dir,
+			 'sample+pages',
+			  '2020pages',
+			   f'{url[34:]}.html',
+		)
+		breakpoint()
+		with open(file_path,'w') as html:
+			html.write(ba_scr.response.text) 
