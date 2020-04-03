@@ -1,3 +1,5 @@
 __pycache__
-jack
+url_database.db
+main.log
+url_list.txt
 venv
