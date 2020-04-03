@@ -104,6 +104,10 @@ def get_bon_apetit_urls(url):
                 href=True,
                 class_='sitemap__link',
             )
+            urls = []
+            for i in hrefs:
+                print(i.contents)
+                url = i.
             breakpoint()
 
         return copy(urls_), recursive(urls_)
