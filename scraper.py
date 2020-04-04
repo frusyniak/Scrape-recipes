@@ -75,6 +75,127 @@ class BonApetitScrape:
 		soup = BeautifulSoup(response, features='lxml')
 		return soup
 
+class Crawler(ABC):
+	"""
+	Take in a sitemap, crawl through that sitemap.
+	"""
+	def __init__(self, sitemap_url, site_definition, read_cache=False):
+		self.sitemap_url = sitemap_url
+
+		# information to get_leaves_from_node
+		self.definition = site_definition
+
+	def write_cache(self):
+			with shelve.open(self.cache_path) as db:
+				db['cache'] = self.recipe_list
+
+	def read_cache(self):
+		with shelve.open(self.cache_path) as db:
+			self.recipe_list = db['cache']
+
+	def cache_recipe_page_responses(self):
+		"""
+		Make a request to all the recipe pages, and save them in the
+		database.
+
+		Make a locally stored html page for each response, which we can
+		use for development.
+		"""
+		pass
+
+	def tree_traverse(self, node, data=None):  # node = base url of the sitemap (to start)
+		"""
+		1. what are the critera for the sitemap links on each sitemap
+		page (hopefully universal)
+
+		2. what is the exit case, where we assume all the links we have
+		are page links, not sitemap links
+		"""
+		if is_leaf_node(node):
+			data = self.get_node_data(node)
+			return [data]
+
+		children = get_children_from_node(node)
+		tup_new_nodes = multithread_requests(children)
+		html_from_response, parent_url = tup_new_nodes
+
+		children = self.parse_html(html_from_response, node)
+
+		return children
+
+	@abstractmethod
+	def parse_html(self, child, parent):
+		"""
+		control what the final data structure will be, either a big ass
+		list, or a dictionary which perservers the original tree
+		structure.
+		"""
+		pass
+
+
+	def is_leaf_node(self):
+		"""
+		The leaf node is the very bottom of a tree.
+		"""
+		pass
+
+	@abstractmethod
+	def get_children_from_node(self):
+		"""
+		Get information that the recursive function will use to traverse
+		the tree.
+		"""
+		pass
+
+	@abstractmethod
+	def scrape_from_page(self):
+		pass
+
+	def multithread_requests(self, urls):
+		"""
+		Call the recursive function again i
+
+		for each child, spawn a new thread that is executing the
+		recuriive function.
+		"""
+		response_and_url = []
+		with ThreadPoolExecutor(max_workers=200) as executor:
+			threads = [
+				executor.submit(
+					self.make_pycurl_request, url
+				)
+				for url
+				in urls
+			]
+
+			for r in as_completed(threads):
+				try:
+					response_and_url.append(r.result())
+
+				except Exception as e:
+					logging.warning(
+						f'{r} generated an exception: {e}.'
+					)
+					logging.warning(dir(r))
+
+		return response_and_url
+
+	@staticmethod
+	def make_pycurl_request(url):
+		buffer = BytesIO()
+		crl = pycurl.Curl()
+		crl.setopt(crl.URL, url)
+		crl.setopt(crl.WRITEDATA, buffer)
+		crl.setopt(crl.CAINFO, certifi.where())
+		crl.perform()
+
+		crl.close()
+
+		logging.debug(f'response recieved from {url}')
+
+		return buffer.getvalue().decode(), url
+
+
 
 class BonApetitCrawler:
 	"""
@@ -115,24 +236,6 @@ class BonApetitCrawler:
 		"""
 		recipe_pages = self.recursive([self.sitemap], [])
 		return recipe_pages
-
-	def write_cache(self):
-		with shelve.open(self.cache_path) as db:
-			db['cache'] = self.recipe_list
-
-	def read_cache(self):
-		with shelve.open(self.cache_path) as db:
-			self.recipe_list = db['cache']
-
-	def cache_recipe_page_responses(self):
-		"""
-		Make a request to all the recipe pages, and save them in the
-		database.
-
-		Make a locally stored html page for each response, which we can
-		use for development.
-		"""
-		pass
 
 	def recursive(self, links_to_do, links_found):
 		log_msg = (
@@ -189,7 +292,7 @@ class BonApetitCrawler:
 					in hrefs
 				],
 				url,
-					)
+			)
 
 	def sort_base_urls(self, urls, parent_url):
 
@@ -230,44 +333,8 @@ class BonApetitCrawler:
 
 		return date_string
 
-	def multithread_requests(self, urls):
-		response_and_url = []
-		with ThreadPoolExecutor(max_workers=200) as executor:
-			threads = [
-				executor.submit(
-					BonApetitCrawler.make_pycurl_request, url
-				)
-				for url
-				in urls
-			]
 
-			for r in as_completed(threads):
-				try:
-					response_and_url.append(r.result())
 
-				except Exception as e:
-					logging.warning(
-						f'{r} generated an exception: {e}.'
-					)
-					logging.warning(dir(r))
-
-		breakpoint()
-		return response_and_url
-
-	@staticmethod
-	def make_pycurl_request(url):
-		buffer = BytesIO()
-		crl = pycurl.Curl()
-		crl.setopt(crl.URL, url)
-		crl.setopt(crl.WRITEDATA, buffer)
-		crl.setopt(crl.CAINFO, certifi.where())
-		crl.perform()
-
-		crl.close()
-
-		logging.debug(f'response recieved from {url}')
-
-		return buffer.getvalue().decode(), url
 
 
 if __name__ == '__main__':
