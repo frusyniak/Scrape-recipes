@@ -3,9 +3,14 @@ import logging
 import os
 import shelve
 import re
+import sys
 
+import pycurl
+import certifi
+from io import BytesIO
 from bs4 import BeautifulSoup
 import requests
+from line_profiler import LineProfiler
 
 from parsers import Parsers
 
@@ -45,22 +50,23 @@ class BonApetitScrape:
 
 	def parse(self, soup):
 		"""
-		Determine the generation of the page's soup, and return a response
-		code so that the page's soup can be parsed appropriately
+		Determine the generation of the page's soup, and return a
+		response code so that the page's soup can be parsed
+		appropriately
 		"""
 		# todo determine parser to use
 
 		parse_helper = Parsers(soup)
-		parse_helper.bon_apetit_2020()  # change to whatever the parser actually should be.
+		parse_helper.bon_apetit_2020()
 		return 'response_code'
 
 	def get_page(self):
 		"""
 		Make the request, return the beautifulsoup object.
 		"""
-		response = requests.get(self.url)
+		response = BonApetitCrawler.make_pycurl_request(self.url)
 		self.response = response
-		soup = BeautifulSoup(response.text, features='html.parser')
+		soup = BeautifulSoup(response, features='html.parser')
 		return soup
 
 
@@ -71,7 +77,7 @@ class BonApetitCrawler:
 	"""
 	def __init__(self, read_cache=False, debug_mode=False):
 		self.base_url = 'https://www.bonappetit.com/'
-		self.sitemap = self.base_url + 'sitemap/'
+		self.sitemap = self.base_url + 'sitemap'
 
 		# define location of the cache
 		self.cache_dir = (
@@ -80,15 +86,22 @@ class BonApetitCrawler:
 				'cache'
 			)
 		)
-		self.cache_path = os.path.join(self.cache_dir, 'bon_apetit_cache')
+		self.cache_path = os.path.join(
+			self.cache_dir,
+			'bon_apetit_cache'
+		)
 
 		# read the cache, if requested
 		if read_cache:
 			self.recipe_list = self.read_cache_func()
 
 		else:
-			self.recipe_list = self.get_bon_apetit_urls()  # or, whatever we get from the cache ############################################################################################################################## recepie list is now a tuple: ('recipe_extension', 'date_month_week')
-			self.urls = [self.base_url + item for item in self.recipe_list]
+			self.recipe_list = self.get_bon_apetit_urls()
+			self.urls = [
+				self.base_url + item
+				for item, day_mo_wk
+				in self.recipe_list
+			]
 			if write_cache:
 				self.write_cache_func()
 
@@ -112,27 +125,35 @@ class BonApetitCrawler:
 		Make a locally stored html page for each response, which we can
 		use for development.
 		"""
+		pass
 
 
 	def get_bon_apetit_urls(self):
 		"""
-		Recursively crawl through the bon apetit website, and get all urls for recipe pages.
+		Recursively crawl through the bon apetit website, and get all
+		urls for recipe pages.
 		"""
-		recipe_pages = BonApetitCrawler.recursive([self.sitemap], [self.sitemap], [])
+		recipe_pages = BonApetitCrawler.recursive(
+			[self.sitemap],
+			[self.sitemap],
+			[],
+		)
 		return recipe_pages
 
 	@staticmethod
-	def recursive(blacklist, to_do, recipe_list=None):
+	def recursive(blacklist, to_do, recipe_list):
 
 		logging.debug(('=' * 80))
 
 		to_do_next = []
-		for url in to_do:
+		for index, url in enumerate(to_do):
 			log_msg = (
 				'\n\n\n'
 				+ url
 				+ '\n\n\n'
-				+ str(len(to_do))
+				+ f'{index}/{len(to_do)} processed.'
+				+ '\n'
+				+ str(len(recipe_list))
 				+ '\n\n\n'
 				+ str(recipe_list)
 				+ '\n\n\n'
@@ -140,49 +161,30 @@ class BonApetitCrawler:
 			logging.debug(log_msg)
 
 			# make request and makes the soup, searches the soup
-			resp = requests.get(url)
-			soup = BeautifulSoup(resp.text)
+			resp = BonApetitCrawler.make_pycurl_request(url)
+			soup = BeautifulSoup(resp, features='html.parser')
 			hrefs = soup.find_all(
 				name='a',
 				href=True,
 				class_='sitemap__link',
 			)
 
+
 			# creates to_do_next
-			for i in hrefs:
-				concatenated_url = 'https://www.bonappetit.com/' + i.contents[0]
-				to_do_next.append(copy(concatenated_url))
-
-			# grows the master list by append to_do_next
-			recipe_regex = re.compile(r'https://www.bonappetit.com/recipe/(.*)')
-			slideshow_regex = re.compile(r'https://www.bonappetit.com/recipes/slideshow/(.*)')
-
-			# get year, month, and date from sitemap url
-			url_param_regex = re.compile(r'https://www.bonappetit.com/sitemap\?year=(\d\d\d\d)&month=(\d+)&week=(\d)')
-			mo = re.search(url_param_regex, url)
 			try:
-				year, month, week = mo[1], mo[2], mo[3]
-				date_string = f'{year}_{month}_week_{week}'
-
-				logging.debug(
-					f'Url: {url}\n'
-					f'Regex: {url_param_regex}\n'
-					f'mo: {mo}\n'
+				for i in hrefs:
+					concatenated_url = (
+						'https://www.bonappetit.com'
+						+ i.contents[0]
 					)
+					to_do_next.append(copy(concatenated_url))
+			except AttributeError:
+				logging.debug((i + '!!!!!!!!!!!!!!'))
+				return recipe_list
 
-				try:
-					logging.debug(
-						f'mo[1]: {mo[1]}'
-						f'mo[2]: {mo[2]}'
-						f'mo[3]: {mo[3]}'
-					)
-				except Exception as e:
-					print(e)
-					breakpoint()
-
-			except TypeError:
-				logging.debug(f'For url {url}, mon/day/wk could not be parsed.')
-
+			slideshow_regex = re.compile(
+				r'https://www.bonappetit.com/recipes/slideshow/(.*)'
+			)
 
 			for item in to_do_next:
 
@@ -190,10 +192,17 @@ class BonApetitCrawler:
 					continue
 
 				# process recipe
-				mo_recipe = re.search(recipe_regex, item)
-				logging.debug(item)
-				if mo_recipe:
-					recipe_extension = mo_recipe[1]
+				if item[27:36] == 'recipe/':
+
+					# get year, month, and date from sitemap url
+					pattern = (r'(\d\d\d\d)&month=(\d+)&week=(\d)')
+					url_param_regex = re.compile(pattern)
+					mo = re.search(url_param_regex, url[40:])
+					year, month, week = mo[1], mo[2], mo[3]
+					date_string = f'{year}_{month}_week_{week}'
+
+					# append
+					recipe_extension = item[37:]
 					recipe_list.append((recipe_extension, date_string))
 					logging.debug(f'recipe:   {recipe_extension}')
 					blacklist.append(item)
@@ -201,13 +210,23 @@ class BonApetitCrawler:
 
 				# process slideshow
 				mo_slideshow = re.search(slideshow_regex, item)
-				if mo_slideshow:
-					resp = requests.get(item)
-					soup = BeautifulSoup(resp.text)
+				if item[27:36] == 'recipes':
+					resp = BonApetitCrawler.make_pycurl_request(item)
+					soup = BeautifulSoup(resp, features='html.parser')
 					for a in soup.find_all('a', href=True):
-						mo = re.search(recipe_regex, a['href'])
-						if mo:
-							recipe_list.append(mo[1], date_string)
+						if a['href'][27:36] == 'recipe/':
+
+							# get year, month, and date from sitemap url
+							pattern = (
+								r'(\d\d\d\d)&month=(\d+)&week=(\d)'
+							)
+							url_param_regex = re.compile(pattern)
+							mo = re.search(url_param_regex, url[40:])
+							year, month, week = mo[1], mo[2], mo[3]
+							date_string = f'{year}_{month}_week_{week}'
+
+							# append
+							recipe_list.append((item[37:], date_string))
 							logging.debug(('*' * 80))
 
 						else:
@@ -218,21 +237,38 @@ class BonApetitCrawler:
 
 				blacklist.append(item)
 
-				# whenever we get to 10k recipes, that's good enough!
-				if len(recipe_list) > 10000:
+				# exit recursion if there is nothing left to do next.
+				if to_do_next == []:
 					return recipe_list
 
-		return BonApetitCrawler.recursive(blacklist, to_do_next, recipe_list)
+		try:
+			BonApetitCrawler.recursive(
+				blacklist,
+				to_do_next,
+				recipe_list
+			)
+		except RecursionError:
+			return recipe_list
+			logging.debug(
+				'***** *** exit case failed. Fell back to recursion error handling'
+			)
+
+	@staticmethod
+	def make_pycurl_request(url):
+		buffer = BytesIO()
+		crl = pycurl.Curl()
+		crl.setopt(crl.URL, url)
+		crl.setopt(crl.WRITEDATA, buffer)
+		crl.setopt(crl.CAINFO, certifi.where())
+		crl.perform()
+
+		crl.close()
+
+		return buffer.getvalue().decode()
+
+
 
 
 if __name__ == '__main__':
 
 	crawler = BonApetitCrawler(debug_mode=True)
-
-
-	# call new url iterator function
-	urls = get_bon_apetit_urls('https://www.bonappetit.com/sitemap')
-
-	cache_urls(urls)
-	cache_pages_at_urls(urls)
-
