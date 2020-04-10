@@ -114,15 +114,17 @@ class BonApetitCrawler:
 		urls for recipe pages.
 		"""
 		recipe_pages = self.recursive([self.sitemap], [])
+		if recipe_pages == []:
+			logging.error('recipe pages is empty.')
 		return recipe_pages
 
-	def write_cache(self):
+	def write_cache_func(self):
 		with shelve.open(self.cache_path) as db:
-			db['cache'] = self.recipe_list
+			db['cache'] = self.url_dict
 
-	def read_cache(self):
+	def read_cache_func(self):
 		with shelve.open(self.cache_path) as db:
-			self.recipe_list = db['cache']
+			self.url_dict = db['cache']
 
 	def cache_recipe_page_responses(self):
 		"""
@@ -131,6 +133,8 @@ class BonApetitCrawler:
 
 		Make a locally stored html page for each response, which we can
 		use for development.
+
+		'2014_3_week_4.html'
 		"""
 		pass
 
@@ -176,11 +180,17 @@ class BonApetitCrawler:
 				]
 				next_level += links_found
 
+		logging.debug('!' * 100)
+		logging.debug(next_level)
+		logging.debug('!' * 100)
+
 		if next_level:
 			logging.debug(f'Called self.recursive.')
+
 			return self.recursive(next_level, [])
 
 		if not next_level:
+			logging.debug('entered if not')
 			return self.sort_base_urls(
 				[
 					'https://www.bonappetit.com/'
@@ -193,12 +203,13 @@ class BonApetitCrawler:
 
 	def sort_base_urls(self, urls, parent_url):
 
-		recipe_urls = [i for i in urls if i[27:36] == 'recipe/']
+		recipe_urls = [i for i in urls if i[27:36] == 'recipe/']  # this needs to be fixed
 		recipe_page_urls = [i for i in urls if i[27:36] == 'recipes']
 		for rp_url in recipe_page_urls:
 			recipe_urls += self.scrape_recipes_from_page(rp_url)
 
 		for url in recipe_urls:
+			logging.debug(f'Recipe Found: {url}')
 			date_string = parse_parent(parent_url)
 			name = url[37:].replace('-', ' ').title()
 			self.url_dict[date_string] = {
@@ -207,7 +218,8 @@ class BonApetitCrawler:
 				'neighbors': recipe_urls,
 				'parent_url': parent_url
 			}
-		return
+
+		return recipe_urls
 
 	def scrape_recipes_from_page(self, url):
 		resp = BonApetitCrawler.make_pycurl_request(url)
@@ -251,7 +263,6 @@ class BonApetitCrawler:
 					)
 					logging.warning(dir(r))
 
-		breakpoint()
 		return response_and_url
 
 	@staticmethod
